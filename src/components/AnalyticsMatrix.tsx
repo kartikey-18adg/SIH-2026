@@ -2,6 +2,10 @@
 
 import React, { useMemo } from 'react';
 import { useDataset } from '../context/DatasetContext';
+import { NormalDistributionChart } from './NormalDistributionChart';
+import { OutlierScatterPlot } from './OutlierScatterPlot';
+import { VendorNetworkGraph } from './VendorNetworkGraph';
+import { GeospatialRiskMap } from './GeospatialRiskMap';
 
 function formatAmount(val: number): string {
   if (!val || isNaN(val)) return '0';
@@ -105,6 +109,18 @@ export const AnalyticsMatrix: React.FC = () => {
           Updated: {summary.loadedAt}
         </div>
       </div>
+
+      {/* Portfolio Cost Distribution Histogram with Fitted Normal Bell Curve & 2D Heat Plot */}
+      <NormalDistributionChart records={records} />
+
+      {/* Multi-Metric Outlier Scatter Matrix */}
+      <OutlierScatterPlot />
+
+      {/* Procurement Collusion & Tender Ring Intelligence Graph */}
+      <VendorNetworkGraph />
+
+      {/* Geospatial State & District Collectorate GIS Map */}
+      <GeospatialRiskMap />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Table 1: Category-wise Allocation & Anomaly Burden */}

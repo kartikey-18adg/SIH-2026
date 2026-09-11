@@ -22,7 +22,7 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 }
 
 // Helper: Parse dates in DD-Mon-YYYY or YYYY-MM-DD format
-function parseDate(dateStr: string): Date | null {
+export function parseDate(dateStr: string): Date | null {
   if (!dateStr || typeof dateStr !== 'string') return null;
   const trimmed = dateStr.trim();
   if (!trimmed || trimmed === 'N/A' || trimmed === '-') return null;
@@ -45,6 +45,50 @@ function parseDate(dateStr: string): Date | null {
   // Standard ISO / JS date parsing fallback
   const d = new Date(trimmed);
   return isNaN(d.getTime()) ? null : d;
+}
+
+export interface CategoryBenchmark {
+  category: string;
+  count: number;
+  median: number;
+  q1: number;
+  q3: number;
+  warningThreshold: number; // 1.55x median
+  criticalThreshold: number; // 2.2x median
+}
+
+export interface RecordAnomalyDistances {
+  cost: {
+    current: number;
+    median: number;
+    warningThreshold: number;
+    criticalThreshold: number;
+    ratioToMedian: number;
+    status: 'NORMAL' | 'ELEVATED' | 'WARNING' | 'ANOMALY';
+    headroomAmount: number; // positive = headroom under threshold, negative = amount over threshold
+  };
+  timeline: {
+    sanctionDate: string;
+    elapsedDays: number;
+    standardSLA: number; // 180
+    criticalSLA: number; // 365
+    status: 'NORMAL' | 'PROLONGED' | 'OVERDUE' | 'CRITICAL_BREACH';
+    headroomDays: number; // positive = days until SLA breach, negative = days past SLA
+  };
+  duplicate: {
+    maxSimilarity: number;
+    matchedId?: string;
+    normalThreshold: number; // 0.40
+    warningThreshold: number; // 0.55
+    criticalThreshold: number; // 0.72
+    status: 'NORMAL' | 'ELEVATED' | 'WARNING' | 'ANOMALY';
+  };
+  overrun: {
+    sanctioned: number;
+    disbursed: number;
+    overrunAmount: number;
+    status: 'CLEARED' | 'OVERRUN';
+  };
 }
 
 export function runAnomalyDetection(
@@ -318,3 +362,142 @@ export function runAnomalyDetection(
     };
   });
 }
+
+// Compute Category Benchmarks (median, quartiles, and thresholds) for all categories
+export function computeCategoryBenchmarks(records: CanonicalWorkRecord[]): Record<string, CategoryBenchmark> {
+  const categoryAmounts: Record<string, number[]> = {};
+
+  records.forEach((r) => {
+    const cat = r.workCategory || 'General';
+    if (!categoryAmounts[cat]) categoryAmounts[cat] = [];
+    if (r.sanctionAmount > 0) {
+      categoryAmounts[cat].push(r.sanctionAmount);
+    }
+  });
+
+  const benchmarks: Record<string, CategoryBenchmark> = {};
+
+  Object.entries(categoryAmounts).forEach(([cat, amounts]) => {
+    const sorted = [...amounts].sort((a, b) => a - b);
+    const n = sorted.length;
+    if (n === 0) return;
+
+    const mid = Math.floor(n / 2);
+    const median = n % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+
+    const q1Idx = Math.floor(n * 0.25);
+    const q3Idx = Math.floor(n * 0.75);
+    const q1 = sorted[q1Idx] || median * 0.7;
+    const q3 = sorted[q3Idx] || median * 1.3;
+
+    benchmarks[cat] = {
+      category: cat,
+      count: n,
+      median,
+      q1,
+      q3,
+      warningThreshold: median * 1.55,
+      criticalThreshold: median * 2.2,
+    };
+  });
+
+  return benchmarks;
+}
+
+// Compute comprehensive distances to normal vs anomaly boundaries for a single record
+export function computeRecordDistances(
+  record: CanonicalWorkRecord,
+  benchmarks: Record<string, CategoryBenchmark>
+): RecordAnomalyDistances {
+  const cat = record.workCategory || 'General';
+  const bm = benchmarks[cat] || {
+    category: cat,
+    count: 1,
+    median: 500000,
+    q1: 300000,
+    q3: 700000,
+    warningThreshold: 775000,
+    criticalThreshold: 1100000,
+  };
+
+  // Cost distance
+  const currentCost = record.sanctionAmount || 0;
+  const ratioToMedian = bm.median > 0 ? currentCost / bm.median : 1.0;
+  let costStatus: 'NORMAL' | 'ELEVATED' | 'WARNING' | 'ANOMALY' = 'NORMAL';
+  if (ratioToMedian >= 2.2) costStatus = 'ANOMALY';
+  else if (ratioToMedian >= 1.55) costStatus = 'WARNING';
+  else if (ratioToMedian >= 1.2) costStatus = 'ELEVATED';
+
+  // Headroom: positive if under critical threshold, negative if exceeded
+  const costHeadroom = bm.criticalThreshold - currentCost;
+
+  // Timeline distance
+  const now = new Date(2026, 8, 3); // 03-Sep-2026 baseline
+  const sancDate = parseDate(record.sanctionDate);
+  let elapsedDays = 0;
+  if (sancDate) {
+    elapsedDays = Math.max(0, Math.floor((now.getTime() - sancDate.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
+  let timelineStatus: 'NORMAL' | 'PROLONGED' | 'OVERDUE' | 'CRITICAL_BREACH' = 'NORMAL';
+  if (elapsedDays > 365) timelineStatus = 'CRITICAL_BREACH';
+  else if (elapsedDays > 180) timelineStatus = 'OVERDUE';
+  else if (elapsedDays > 120) timelineStatus = 'PROLONGED';
+
+  const timelineHeadroom = 180 - elapsedDays; // positive = days left before 180 SLA
+
+  // Duplicate distance
+  const dupTrigger = record.triggeredRules.find((r) => r.ruleId === 'DUPLICATE_WORK');
+  let duplicateSimilarity = 0.15; // default normal baseline
+  let dupStatus: 'NORMAL' | 'ELEVATED' | 'WARNING' | 'ANOMALY' = 'NORMAL';
+
+  if (dupTrigger) {
+    const match = dupTrigger.description.match(/(\d+)%/);
+    if (match) {
+      duplicateSimilarity = parseInt(match[1], 10) / 100;
+    } else {
+      duplicateSimilarity = dupTrigger.severity === 'HIGH' ? 0.75 : 0.58;
+    }
+    dupStatus = dupTrigger.severity === 'HIGH' ? 'ANOMALY' : 'WARNING';
+  } else if (record.riskScore > 30) {
+    duplicateSimilarity = 0.35;
+    dupStatus = 'ELEVATED';
+  }
+
+  // Overrun distance
+  const overrunAmount = Math.max(0, record.disbursedAmount - record.sanctionAmount);
+
+  return {
+    cost: {
+      current: currentCost,
+      median: bm.median,
+      warningThreshold: bm.warningThreshold,
+      criticalThreshold: bm.criticalThreshold,
+      ratioToMedian,
+      status: costStatus,
+      headroomAmount: costHeadroom,
+    },
+    timeline: {
+      sanctionDate: record.sanctionDate || 'N/A',
+      elapsedDays,
+      standardSLA: 180,
+      criticalSLA: 365,
+      status: timelineStatus,
+      headroomDays: timelineHeadroom,
+    },
+    duplicate: {
+      maxSimilarity: duplicateSimilarity,
+      normalThreshold: 0.4,
+      warningThreshold: 0.55,
+      criticalThreshold: 0.72,
+      status: dupStatus,
+    },
+    overrun: {
+      sanctioned: record.sanctionAmount,
+      disbursed: record.disbursedAmount,
+      overrunAmount,
+      status: overrunAmount > 0 ? 'OVERRUN' : 'CLEARED',
+    },
+  };
+}
+

@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useDataset } from '../context/DatasetContext';
 import { CanonicalWorkRecord, AuditActionStatus } from '../types';
+import { AnomalyProximityChart } from './AnomalyProximityChart';
+import { ShowCauseNoticeModal } from './ShowCauseNoticeModal';
 
 function formatINR(val: number): string {
   if (!val || isNaN(val)) return '₹0';
@@ -25,6 +27,7 @@ export const SplitWorkInspector: React.FC<{ record?: CanonicalWorkRecord | null 
   const [noteInput, setNoteInput] = useState('');
   const [remarksInput, setRemarksInput] = useState('');
   const [showRawJson, setShowRawJson] = useState(false);
+  const [showNoticeModal, setShowNoticeModal] = useState(false);
 
   if (!record) {
     return (
@@ -251,6 +254,9 @@ export const SplitWorkInspector: React.FC<{ record?: CanonicalWorkRecord | null 
             RIGHT PANEL: AI Anomaly Analysis, Vigilance Controls & Audit Notes
             ========================================================================= */}
         <div className="lg:col-span-6 overflow-y-auto p-4 bg-paper space-y-4 text-xs">
+          {/* Anomaly Proximity & Normal Baseline Gauge Chart */}
+          <AnomalyProximityChart record={record} allRecords={records} />
+
           {/* Section: Anomaly Triggers Breakdown */}
           <div>
             <div className="flex items-center justify-between border-b border-border-subtle pb-1">
@@ -362,6 +368,20 @@ export const SplitWorkInspector: React.FC<{ record?: CanonicalWorkRecord | null 
                 Freeze Payment
               </button>
             </div>
+
+            {/* Show Cause Notice Generation Button */}
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-text-dim">
+                Formal Statutory Proceedings:
+              </span>
+              <button
+                onClick={() => setShowNoticeModal(true)}
+                className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-risk-high border border-red-300 font-mono text-[11px] font-bold rounded-xs flex items-center space-x-1"
+              >
+                <span>📜 Issue Show-Cause Notice</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
           </div>
 
           {/* Section: Action Taken Record (ATR) Journal */}
@@ -416,6 +436,14 @@ export const SplitWorkInspector: React.FC<{ record?: CanonicalWorkRecord | null 
           </div>
         </div>
       </div>
+
+      {/* Show Cause Vigilance Notice Modal */}
+      <ShowCauseNoticeModal
+        record={record}
+        isOpen={showNoticeModal}
+        onClose={() => setShowNoticeModal(false)}
+      />
     </div>
   );
 };
+
