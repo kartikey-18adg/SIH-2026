@@ -12,7 +12,7 @@ import { ColumnMappingModal } from '../components/ColumnMappingModal';
 import { EmptyDatasetState } from '../components/EmptyDatasetState';
 
 function WorkstationCore() {
-  const { records, activeTab, selectedRecord, setActiveTab } = useDataset();
+  const { records, activeTab, setActiveTab } = useDataset();
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-paper">
@@ -26,46 +26,30 @@ function WorkstationCore() {
 
           <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {activeTab === 'DASHBOARD' && (
-              <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
-                {/* High Density Table Section */}
-                <div
-                  className={`flex flex-col min-h-0 overflow-hidden transition-all ${
-                    selectedRecord ? 'lg:col-span-7 border-r border-border-subtle' : 'lg:col-span-12'
-                  }`}
-                >
-                  <DenseAnomalyTable />
-                </div>
-
-                {/* Right Drawer Inspector Desk Preview */}
-                {selectedRecord && (
-                  <div className="hidden lg:flex lg:col-span-5 flex-col min-h-0 overflow-hidden bg-surface-card">
-                    <div className="p-2 bg-slate-100 border-b border-border-subtle flex items-center justify-between text-xs">
-                      <span className="font-mono text-xs font-bold text-text-main">
-                        ACTIVE AUDIT DOSSIER
-                      </span>
-                      <button
-                        onClick={() => setActiveTab('INSPECTOR')}
-                        className="px-2 py-0.5 bg-gov-navy text-white text-[11px] font-mono rounded-xs"
-                      >
-                        Maximize Inspector &gt;
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto">
-                      <SplitWorkInspector record={selectedRecord} />
-                    </div>
-                  </div>
-                )}
+              <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
+                <DenseAnomalyTable setActiveTab={setActiveTab} />
               </div>
             )}
 
             {activeTab === 'ANOMALIES' && (
               <div className="flex-1 flex flex-col min-h-0">
-                <DenseAnomalyTable />
+                <DenseAnomalyTable setActiveTab={setActiveTab} />
               </div>
             )}
 
             {activeTab === 'INSPECTOR' && (
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-paper">
+                <div className="flex items-center justify-between px-4 py-2 bg-surface-card border-b border-border-subtle">
+                  <button
+                    onClick={() => setActiveTab('DASHBOARD')}
+                    className="px-3 py-1.5 bg-surface-card border border-border-subtle text-text-muted text-xs font-mono rounded-xs hover:bg-slate-100"
+                  >
+                    &larr; Back to Executive Dashboard
+                  </button>
+                  <span className="font-mono text-xs font-bold text-text-main">
+                    ACTIVE AUDIT DOSSIER
+                  </span>
+                </div>
                 <SplitWorkInspector />
               </div>
             )}

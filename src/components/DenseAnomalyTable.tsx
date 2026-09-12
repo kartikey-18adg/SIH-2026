@@ -2,19 +2,22 @@
 
 import React, { useState, useMemo } from 'react';
 import { useDataset } from '../context/DatasetContext';
-import { CanonicalWorkRecord, RiskLevel, AuditActionStatus } from '../types';
+import { ActiveTab, CanonicalWorkRecord, RiskLevel, AuditActionStatus } from '../types';
+
+interface DenseAnomalyTableProps {
+  setActiveTab: (tab: ActiveTab) => void;
+}
 
 function formatAmount(val: number): string {
   if (!val || isNaN(val)) return '0';
   return Math.round(val).toLocaleString('en-IN');
 }
 
-export const DenseAnomalyTable: React.FC = () => {
+export const DenseAnomalyTable: React.FC<DenseAnomalyTableProps> = ({ setActiveTab }) => {
   const {
     filteredRecords,
     selectedRecord,
     setSelectedRecord,
-    setActiveTab,
     searchQuery,
     setSearchQuery,
     riskFilter,
@@ -66,6 +69,7 @@ export const DenseAnomalyTable: React.FC = () => {
 
   const handleRowClick = (rec: CanonicalWorkRecord) => {
     setSelectedRecord(rec);
+    setActiveTab('INSPECTOR');
   };
 
   const handleRowDoubleClick = (rec: CanonicalWorkRecord) => {
@@ -74,7 +78,7 @@ export const DenseAnomalyTable: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-paper text-text-main">
+    <div className="flex min-w-0 flex-col h-full bg-paper text-text-main">
       {/* Controls & Filter Toolbar */}
       <div className="p-3 bg-surface-card border-b border-border-subtle flex flex-wrap items-center justify-between gap-3 text-xs">
         {/* Search Bar */}
@@ -186,7 +190,7 @@ export const DenseAnomalyTable: React.FC = () => {
       </div>
 
       {/* Main High-Density Table */}
-      <div className="flex-1 overflow-auto bg-surface-card">
+      <div className="flex-1 min-w-0 overflow-auto bg-surface-card">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border-subtle bg-paper text-[11px] text-text-dim font-medium tracking-wide sticky top-0 z-10">

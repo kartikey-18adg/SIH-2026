@@ -15,6 +15,8 @@ export const GeospatialRiskMap: React.FC = () => {
     records,
     stateFilter,
     setStateFilter,
+    setWorkCategoryFilter,
+    setAgencyFilter,
     setConstituencyFilter,
     setActiveTab,
   } = useDataset();
@@ -138,6 +140,8 @@ export const GeospatialRiskMap: React.FC = () => {
             <button
               onClick={() => {
                 setStateFilter('ALL');
+                setWorkCategoryFilter('ALL');
+                setAgencyFilter('ALL');
                 setConstituencyFilter('ALL');
               }}
               className="text-risk-high hover:underline font-bold"

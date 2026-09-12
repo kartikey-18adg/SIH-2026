@@ -31,6 +31,8 @@ interface DatasetContextType {
   setActiveTab: (tab: ActiveTab) => void;
   activeWorkspace: WorkspaceView;
   setActiveWorkspace: (ws: WorkspaceView) => void;
+  districtFilter: string;
+  setDistrictFilter: (district: string) => void;
   selectedRecord: CanonicalWorkRecord | null;
   setSelectedRecord: (r: CanonicalWorkRecord | null) => void;
 
@@ -51,6 +53,10 @@ interface DatasetContextType {
   setAnomalyFilter: (af: string) => void;
   stateFilter: string;
   setStateFilter: (s: string) => void;
+  workCategoryFilter: string;
+  setWorkCategoryFilter: (category: string) => void;
+  agencyFilter: string;
+  setAgencyFilter: (agency: string) => void;
   constituencyFilter: string;
   setConstituencyFilter: (c: string) => void;
   filteredRecords: CanonicalWorkRecord[];
@@ -95,6 +101,7 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('DASHBOARD');
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceView>('MINISTRY_AUDIT');
+  const [districtFilter, setDistrictFilter] = useState('ALL');
   const [selectedRecord, setSelectedRecord] = useState<CanonicalWorkRecord | null>(null);
 
   const [isMappingModalOpen, setIsMappingModalOpen] = useState(false);
@@ -106,6 +113,8 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [riskFilter, setRiskFilter] = useState<'ALL' | RiskLevel>('ALL');
   const [anomalyFilter, setAnomalyFilter] = useState('ALL');
   const [stateFilter, setStateFilter] = useState('ALL');
+  const [workCategoryFilter, setWorkCategoryFilter] = useState('ALL');
+  const [agencyFilter, setAgencyFilter] = useState('ALL');
   const [constituencyFilter, setConstituencyFilter] = useState('ALL');
 
   // Compute dataset summary metrics
@@ -227,6 +236,8 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSelectedRecord(null);
     setRawParseResult(null);
     setSearchQuery('');
+    setDistrictFilter('ALL');
+    setConstituencyFilter('ALL');
   }, []);
 
   // Update auditor status for a specific record
@@ -292,9 +303,24 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [selectedRecord]
   );
 
+  // Apply workspace scope before the existing risk, anomaly, and search filters.
+  const workspaceScopedRecords = useMemo(() => {
+    if (activeWorkspace === 'MINISTRY_AUDIT') return records;
+
+    if (activeWorkspace === 'DISTRICT_COLLECTORATE' && districtFilter !== 'ALL') {
+      return records.filter((record) => record.ida.toLowerCase() === districtFilter.toLowerCase());
+    }
+
+    if (activeWorkspace === 'MP_CONSTITUENCY' && constituencyFilter !== 'ALL') {
+      return records.filter((record) => record.constituency.toLowerCase() === constituencyFilter.toLowerCase());
+    }
+
+    return records;
+  }, [records, activeWorkspace, districtFilter, constituencyFilter]);
+
   // Filtered and searched records memo
   const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
+    return workspaceScopedRecords.filter((r) => {
       // Risk filter
       if (riskFilter !== 'ALL' && r.riskLevel !== riskFilter) {
         return false;
@@ -308,6 +334,22 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // State filter
       if (stateFilter !== 'ALL' && r.state.toLowerCase() !== stateFilter.toLowerCase()) {
+        return false;
+      }
+
+      // Work category filter
+      if (
+        workCategoryFilter !== 'ALL' &&
+        (r.workCategory || 'General / Unspecified').toLowerCase() !== workCategoryFilter.toLowerCase()
+      ) {
+        return false;
+      }
+
+      // Vendor / implementing agency filter
+      if (
+        agencyFilter !== 'ALL' &&
+        (r.vendorName || r.ida || 'Unknown Agency').toLowerCase() !== agencyFilter.toLowerCase()
+      ) {
         return false;
       }
 
@@ -333,7 +375,7 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       return true;
     });
-  }, [records, riskFilter, anomalyFilter, stateFilter, constituencyFilter, searchQuery]);
+  }, [workspaceScopedRecords, riskFilter, anomalyFilter, stateFilter, workCategoryFilter, agencyFilter, constituencyFilter, searchQuery]);
 
   // Export filtered dataset as CSV
   const exportCSV = useCallback(() => {
@@ -410,6 +452,8 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveTab,
         activeWorkspace,
         setActiveWorkspace,
+        districtFilter,
+        setDistrictFilter,
         selectedRecord,
         setSelectedRecord,
         isMappingModalOpen,
@@ -426,6 +470,10 @@ export const DatasetProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setAnomalyFilter,
         stateFilter,
         setStateFilter,
+        workCategoryFilter,
+        setWorkCategoryFilter,
+        agencyFilter,
+        setAgencyFilter,
         constituencyFilter,
         setConstituencyFilter,
         filteredRecords,

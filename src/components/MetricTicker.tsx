@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useDataset } from '../context/DatasetContext';
 
 // Helper to format Indian currency
@@ -16,15 +16,41 @@ function formatINR(val: number): string {
 }
 
 export const MetricTicker: React.FC = () => {
-  const { summary, records } = useDataset();
+  const { summary, records, filteredRecords } = useDataset();
+
+  const scopedSummary = useMemo(() => {
+    return filteredRecords.reduce(
+      (acc, record) => {
+        acc.totalRecords++;
+        acc.sanctionedTotal += record.sanctionAmount || 0;
+        acc.disbursedTotal += record.disbursedAmount || 0;
+        acc.totalEstimatedOverrun += record.estimatedOverrunRisk || 0;
+        if (record.riskLevel === 'HIGH') acc.highRiskCount++;
+        else if (record.riskLevel === 'MEDIUM') acc.mediumRiskCount++;
+        else acc.lowRiskCount++;
+        if (record.triggeredRules.length > 0) acc.totalFlagged++;
+        return acc;
+      },
+      {
+        totalRecords: 0,
+        sanctionedTotal: 0,
+        disbursedTotal: 0,
+        highRiskCount: 0,
+        mediumRiskCount: 0,
+        lowRiskCount: 0,
+        totalFlagged: 0,
+        totalEstimatedOverrun: 0,
+      }
+    );
+  }, [filteredRecords]);
 
   if (!summary || records.length === 0) {
     return null;
   }
 
   const disbPercent =
-    summary.sanctionedTotal > 0
-      ? ((summary.disbursedTotal / summary.sanctionedTotal) * 100).toFixed(1)
+    scopedSummary.sanctionedTotal > 0
+    ? ((scopedSummary.disbursedTotal / scopedSummary.sanctionedTotal) * 100).toFixed(1)
       : '0.0';
 
   return (
@@ -36,7 +62,7 @@ export const MetricTicker: React.FC = () => {
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className="text-2xl font-bold font-mono tracking-tight text-text-main">
-            {summary.totalRecords.toLocaleString('en-IN')}
+            {scopedSummary.totalRecords.toLocaleString('en-IN')}
           </span>
           <span className="text-[11px] font-mono text-text-muted">
             100% Ingested
@@ -56,11 +82,11 @@ export const MetricTicker: React.FC = () => {
         </div>
         <div className="mt-1 flex items-baseline space-x-2">
           <span className="text-xl font-bold font-mono text-text-main">
-            {formatINR(summary.sanctionedTotal)}
+            {formatINR(scopedSummary.sanctionedTotal)}
           </span>
           <span className="text-xs text-text-muted">/</span>
           <span className="text-sm font-mono text-text-muted">
-            {formatINR(summary.disbursedTotal)}
+            {formatINR(scopedSummary.disbursedTotal)}
           </span>
         </div>
         <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-none overflow-hidden">
@@ -76,21 +102,21 @@ export const MetricTicker: React.FC = () => {
         <div className="text-[11px] font-medium text-text-dim uppercase tracking-wider flex justify-between">
           <span>Flagged Anomalies</span>
           <span className="font-mono text-risk-high font-semibold">
-            {summary.totalFlagged} cases ({((summary.totalFlagged / summary.totalRecords) * 100).toFixed(1)}%)
+            {scopedSummary.totalFlagged} cases ({scopedSummary.totalRecords > 0 ? ((scopedSummary.totalFlagged / scopedSummary.totalRecords) * 100).toFixed(1) : '0.0'}%)
           </span>
         </div>
         <div className="mt-1 flex items-center space-x-2">
           <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-risk-high-bg border border-risk-high-border text-risk-high text-xs font-mono font-bold">
             <span>High:</span>
-            <span>{summary.highRiskCount}</span>
+            <span>{scopedSummary.highRiskCount}</span>
           </div>
           <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-risk-medium-bg border border-risk-medium-border text-risk-medium text-xs font-mono font-bold">
             <span>Med:</span>
-            <span>{summary.mediumRiskCount}</span>
+            <span>{scopedSummary.mediumRiskCount}</span>
           </div>
           <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-risk-low-bg border border-risk-low-border text-risk-low text-xs font-mono font-bold">
             <span>Low:</span>
-            <span>{summary.lowRiskCount}</span>
+            <span>{scopedSummary.lowRiskCount}</span>
           </div>
         </div>
         <div className="mt-1.5 text-[11px] text-text-muted border-t border-slate-100 pt-1 flex justify-between">
@@ -107,7 +133,7 @@ export const MetricTicker: React.FC = () => {
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span className="text-xl font-bold font-mono text-risk-high">
-            {formatINR(summary.totalEstimatedOverrun)}
+            {formatINR(scopedSummary.totalEstimatedOverrun)}
           </span>
           <span className="text-[11px] font-mono px-1.5 py-0.5 bg-red-50 text-risk-high border border-red-200">
             Discrepancy Triggered

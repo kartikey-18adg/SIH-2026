@@ -15,7 +15,19 @@ function formatAmount(val: number): string {
 }
 
 export const AnalyticsMatrix: React.FC = () => {
-  const { records, summary, setSelectedRecord, setActiveTab } = useDataset();
+  const {
+    records,
+    summary,
+    stateFilter,
+    setWorkCategoryFilter,
+    setAgencyFilter,
+    setActiveTab,
+  } = useDataset();
+
+  const stateScopedRecords = useMemo(() => {
+    if (stateFilter === 'ALL') return records;
+    return records.filter((record) => record.state.toLowerCase() === stateFilter.toLowerCase());
+  }, [records, stateFilter]);
 
   // Category analysis
   const categoryStats = useMemo(() => {
@@ -24,7 +36,7 @@ export const AnalyticsMatrix: React.FC = () => {
       { count: number; sanctioned: number; disbursed: number; highRisk: number; flagged: number }
     > = {};
 
-    records.forEach((r) => {
+    stateScopedRecords.forEach((r) => {
       const cat = r.workCategory || 'General / Unspecified';
       if (!stats[cat]) {
         stats[cat] = { count: 0, sanctioned: 0, disbursed: 0, highRisk: 0, flagged: 0 };
@@ -37,7 +49,7 @@ export const AnalyticsMatrix: React.FC = () => {
     });
 
     return Object.entries(stats).sort((a, b) => b[1].count - a[1].count);
-  }, [records]);
+  }, [stateScopedRecords]);
 
   // Vendor / Agency Concentration
   const agencyStats = useMemo(() => {
@@ -46,7 +58,7 @@ export const AnalyticsMatrix: React.FC = () => {
       { name: string; count: number; sanctioned: number; highRiskCount: number }
     > = {};
 
-    records.forEach((r) => {
+    stateScopedRecords.forEach((r) => {
       const agencyName = r.vendorName || r.ida || 'Unknown Agency';
       if (!map[agencyName]) {
         map[agencyName] = { name: agencyName, count: 0, sanctioned: 0, highRiskCount: 0 };
@@ -59,7 +71,7 @@ export const AnalyticsMatrix: React.FC = () => {
     return Object.values(map)
       .sort((a, b) => b.highRiskCount - a.highRiskCount || b.count - a.count)
       .slice(0, 10);
-  }, [records]);
+  }, [stateScopedRecords]);
 
   // Constituency Anomaly Distribution
   const constituencyStats = useMemo(() => {
@@ -68,7 +80,7 @@ export const AnalyticsMatrix: React.FC = () => {
       { constituency: string; state: string; count: number; highRisk: number; sanctioned: number }
     > = {};
 
-    records.forEach((r) => {
+    stateScopedRecords.forEach((r) => {
       const key = `${r.constituency || 'N/A'}_${r.state || 'N/A'}`;
       if (!map[key]) {
         map[key] = {
@@ -87,7 +99,17 @@ export const AnalyticsMatrix: React.FC = () => {
     return Object.values(map)
       .sort((a, b) => b.highRisk - a.highRisk || b.count - a.count)
       .slice(0, 10);
-  }, [records]);
+  }, [stateScopedRecords]);
+
+  const handleCategorySelect = (category: string) => {
+    setWorkCategoryFilter(category);
+    setActiveTab('DASHBOARD');
+  };
+
+  const handleAgencySelect = (agency: string) => {
+    setAgencyFilter(agency);
+    setActiveTab('DASHBOARD');
+  };
 
   if (!summary || records.length === 0) {
     return null;
@@ -144,7 +166,11 @@ export const AnalyticsMatrix: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-border-subtle/50 font-mono text-[11px]">
                 {categoryStats.map(([cat, stat]) => (
-                  <tr key={cat} className="hover:bg-slate-50">
+                  <tr
+                    key={cat}
+                    onClick={() => handleCategorySelect(cat)}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
                     <td className="py-2 px-2.5 font-sans font-medium text-text-main">
                       {cat}
                     </td>
@@ -228,7 +254,11 @@ export const AnalyticsMatrix: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-border-subtle/50 font-mono text-[11px]">
                 {agencyStats.map((ag, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
+                  <tr
+                    key={idx}
+                    onClick={() => handleAgencySelect(ag.name)}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
                     <td className="py-2 px-2.5 font-sans font-medium text-text-main max-w-sm truncate" title={ag.name}>
                       {ag.name}
                     </td>

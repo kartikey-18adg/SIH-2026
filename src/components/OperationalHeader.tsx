@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useDataset } from '../context/DatasetContext';
 import { ActiveTab, WorkspaceView } from '../types';
 
@@ -10,6 +10,10 @@ export const OperationalHeader: React.FC = () => {
     setActiveTab,
     activeWorkspace,
     setActiveWorkspace,
+    districtFilter,
+    setDistrictFilter,
+    constituencyFilter,
+    setConstituencyFilter,
     summary,
     records,
     loadOfficialDataset,
@@ -17,6 +21,32 @@ export const OperationalHeader: React.FC = () => {
     clearDataset,
     exportCSV,
   } = useDataset();
+
+  const districtOptions = useMemo(
+    () => Array.from(new Set(records.map((record) => record.ida).filter(Boolean))).sort(),
+    [records]
+  );
+  const constituencyOptions = useMemo(
+    () => Array.from(new Set(records.map((record) => record.constituency).filter(Boolean))).sort(),
+    [records]
+  );
+
+  useEffect(() => {
+    if (activeWorkspace === 'DISTRICT_COLLECTORATE' && districtOptions.length > 0 && districtFilter === 'ALL') {
+      setDistrictFilter(districtOptions[0]);
+    }
+    if (activeWorkspace === 'MP_CONSTITUENCY' && constituencyOptions.length > 0 && constituencyFilter === 'ALL') {
+      setConstituencyFilter(constituencyOptions[0]);
+    }
+  }, [
+    activeWorkspace,
+    districtFilter,
+    districtOptions,
+    constituencyFilter,
+    constituencyOptions,
+    setDistrictFilter,
+    setConstituencyFilter,
+  ]);
 
   const tabs: { id: ActiveTab; label: string }[] = [
     { id: 'DASHBOARD', label: 'Executive Dashboard' },
@@ -81,7 +111,12 @@ export const OperationalHeader: React.FC = () => {
             <span className="text-text-muted font-medium">Workspace:</span>
             <select
               value={activeWorkspace}
-              onChange={(e) => setActiveWorkspace(e.target.value as WorkspaceView)}
+              onChange={(e) => {
+                const workspace = e.target.value as WorkspaceView;
+                setActiveWorkspace(workspace);
+                if (workspace !== 'DISTRICT_COLLECTORATE') setDistrictFilter('ALL');
+                if (workspace !== 'MP_CONSTITUENCY') setConstituencyFilter('ALL');
+              }}
               aria-label="Workspace Context"
               className="bg-paper border border-border-subtle px-2 py-1 text-xs font-mono text-text-main rounded-xs focus:outline-none focus:border-border-dark"
             >
@@ -89,6 +124,34 @@ export const OperationalHeader: React.FC = () => {
               <option value="DISTRICT_COLLECTORATE">District Collectorate / IDA View</option>
               <option value="MP_CONSTITUENCY">MP Constituency Oversight Desk</option>
             </select>
+            {activeWorkspace === 'DISTRICT_COLLECTORATE' && (
+              <select
+                value={districtFilter}
+                onChange={(e) => setDistrictFilter(e.target.value)}
+                aria-label="District Authority"
+                required
+                className="bg-paper border border-border-subtle px-2 py-1 text-xs font-mono text-text-main rounded-xs focus:outline-none focus:border-border-dark"
+              >
+                <option value="ALL" disabled>Select District</option>
+                {districtOptions.map((district) => (
+                  <option key={district} value={district}>{district}</option>
+                ))}
+              </select>
+            )}
+            {activeWorkspace === 'MP_CONSTITUENCY' && (
+              <select
+                value={constituencyFilter}
+                onChange={(e) => setConstituencyFilter(e.target.value)}
+                aria-label="MP Constituency"
+                required
+                className="bg-paper border border-border-subtle px-2 py-1 text-xs font-mono text-text-main rounded-xs focus:outline-none focus:border-border-dark"
+              >
+                <option value="ALL" disabled>Select MP / Constituency</option>
+                {constituencyOptions.map((constituency) => (
+                  <option key={constituency} value={constituency}>{constituency} MP Desk</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
