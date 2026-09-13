@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useDataset } from '../context/DatasetContext';
 import { ActiveTab, WorkspaceView } from '../types';
+import { AIAuditCopilot } from './AIAuditCopilot';
 
 export const OperationalHeader: React.FC = () => {
   const {
@@ -186,6 +187,7 @@ export const OperationalHeader: React.FC = () => {
 
           {/* Quick Action Buttons */}
           <div className="flex items-center space-x-1.5">
+            <AIAuditCopilot />
             {!records.length && (
               <button
                 onClick={loadOfficialDataset}

@@ -5,6 +5,7 @@ import { useDataset } from '../context/DatasetContext';
 import { CanonicalWorkRecord, AuditActionStatus } from '../types';
 import { AnomalyProximityChart } from './AnomalyProximityChart';
 import { ShowCauseNoticeModal } from './ShowCauseNoticeModal';
+import { AIWorkAnalysis } from './AIWorkAnalysis';
 
 function formatINR(val: number): string {
   if (!val || isNaN(val)) return '₹0';
@@ -256,6 +257,8 @@ export const SplitWorkInspector: React.FC<{ record?: CanonicalWorkRecord | null 
         <div className="lg:col-span-6 overflow-y-auto p-4 bg-paper space-y-4 text-xs">
           {/* Anomaly Proximity & Normal Baseline Gauge Chart */}
           <AnomalyProximityChart record={record} allRecords={records} />
+
+          <AIWorkAnalysis record={record} />
 
           {/* Section: Anomaly Triggers Breakdown */}
           <div>
